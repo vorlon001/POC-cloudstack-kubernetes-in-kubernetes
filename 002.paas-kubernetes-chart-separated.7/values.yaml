@@ -7,6 +7,7 @@ stage010: false
 
 
 etcdImage: harbor.iblog.pro/registry.k8s.io/etcd:3.6.8-0
+jobImage: harbor.iblog.pro/test/k8s-deploy-job:v2
 
 # Global settings
 global:

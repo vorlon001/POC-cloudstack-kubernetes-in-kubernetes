@@ -1,0 +1,124 @@
+{{- if .Values.stage003 }}
+---
+apiVersion: v1
+data:
+  k8s-kubeadm.yaml: |
+    ---
+    apiVersion: kubeadm.k8s.io/v1beta4
+    kind: ClusterConfiguration
+    controlPlaneEndpoint: {{ .Values.global.advertiseAddress }}:6443
+    networking:
+      dnsDomain: cluster.local
+      podSubnet: {{ .Values.global.clusterCIDR }}
+      serviceSubnet: {{ .Values.global.serviceClusterIPRange }}
+    ---
+    apiVersion: kubelet.config.k8s.io/v1beta1
+    kind: KubeletConfiguration
+    allowedUnsafeSysctls:
+    - net.core.somaxconn
+    authentication:
+        anonymous:
+            enabled: false
+        webhook:
+            cacheTTL: 0s
+            enabled: true
+    authorization:
+        mode: Webhook
+        webhook:
+            cacheAuthorizedTTL: 0s
+            cacheUnauthorizedTTL: 0s
+    cgroupDriver: systemd
+    cgroupRoot: /
+    cgroupsPerQOS: true
+    clusterDomain: cluster.local
+    containerLogMaxFiles: 5
+    containerLogMaxSize: 50Mi
+    cpuManagerReconcilePeriod: 0s
+    evictionHard:
+        imagefs.available: 25%
+        imagefs.inodesFree: 15%
+        memory.available: 500Mi
+        nodefs.available: 20%
+        nodefs.inodesFree: 10%
+    evictionMaxPodGracePeriod: 300
+    evictionMinimumReclaim:
+        imagefs.available: 2Gi
+        memory.available: 0Mi
+        nodefs.available: 500Mi
+    evictionPressureTransitionPeriod: 5m
+    evictionSoft:
+        imagefs.available: 30%
+        imagefs.inodesFree: 25%
+        memory.available: 500Mi
+        nodefs.available: 25%
+        nodefs.inodesFree: 15%
+    evictionSoftGracePeriod:
+        imagefs.available: 2m30s
+        imagefs.inodesFree: 2m30s
+        memory.available: 2m30s
+        nodefs.available: 2m30s
+        nodefs.inodesFree: 2m30s
+    fileCheckFrequency: 0s
+    hairpinMode: hairpin-veth
+    healthzBindAddress: 127.0.0.1
+    httpCheckFrequency: 0s
+    imageGCHighThresholdPercent: 55
+    imageGCLowThresholdPercent: 50
+    imageMinimumGCAge: 0s
+    kubeAPIBurst: 100
+    kubeAPIQPS: 50
+    kubeReserved:
+        cpu: 500m
+        ephemeral-storage: 3Gi
+        memory: 500Mi
+    kubeReservedCgroup: /kubelet.slice
+    kubeletCgroups: /kubelet.slice
+    logging:
+        flushFrequency: 0
+        options:
+            json:
+                infoBufferSize: 0
+        verbosity: 0
+    maxOpenFiles: 1000000
+    maxParallelImagePulls: 5
+    maxPods: 20
+    memorySwap: {}
+    memoryThrottlingFactor: 0.9
+    nodeStatusMaxImages: 50
+    nodeStatusReportFrequency: 20s
+    nodeStatusUpdateFrequency: 30s
+    podPidsLimit: 4096
+    podsPerCore: 5
+    registerNode: true
+    resolvConf: /run/systemd/resolve/resolv.conf
+    rotateCertificates: true
+    runtimeRequestTimeout: 0s
+    serializeImagePulls: false
+    serverTLSBootstrap: false
+    shutdownGracePeriod: 15s
+    shutdownGracePeriodCriticalPods: 5s
+    streamingConnectionIdleTimeout: 0s
+    syncFrequency: 0s
+    systemReserved:
+        cpu: 500m
+        ephemeral-storage: 1Gi
+        memory: 1000Mi
+    tlsCipherSuites:
+    - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+    - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+    - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+    - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+    - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+    - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+    - TLS_RSA_WITH_AES_256_GCM_SHA384
+    - TLS_RSA_WITH_AES_128_GCM_SHA256
+    - TLS_AES_128_GCM_SHA256
+    - TLS_AES_256_GCM_SHA384
+    - TLS_CHACHA20_POLY1305_SHA256
+    tlsMinVersion: VersionTLS13
+    volumeStatsAggPeriod: 0s
+kind: ConfigMap
+metadata:
+  name: {{ .Values.global.clusterName }}-kubeadm-config
+  namespace: {{ .Values.global.namespace }}
+{{- end }}

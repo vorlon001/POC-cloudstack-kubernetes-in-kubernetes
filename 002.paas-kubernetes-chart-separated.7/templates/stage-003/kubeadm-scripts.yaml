@@ -1,0 +1,11 @@
+{{- if .Values.stage003 }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.global.clusterName }}-kubeadm-scripts
+  namespace: {{ .Values.global.namespace }}
+data:
+  configure-cluster.sh: |+
+    {{- tpl (.Files.Get "scripts/configure-cluster.sh") . | nindent 4 }}
+{{- end }}

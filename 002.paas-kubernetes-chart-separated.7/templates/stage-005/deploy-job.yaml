@@ -1,0 +1,67 @@
+{{- if .Values.stage005 }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: paas-one-manager-sa
+  namespace: cluster
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: paas-one-manager-role
+  namespace: cluster
+rules:
+- apiGroups: [""]
+  resources: ["secrets","configmaps", "services", "serviceaccounts"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: paas-one-manager-rolebinding
+  namespace: cluster
+subjects:
+- kind: ServiceAccount
+  name: paas-one-manager-sa
+  namespace: cluster
+roleRef:
+  kind: Role
+  name: paas-one-manager-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "paas-one-kubeadm-tasks"
+  namespace: cluster
+  labels:
+    app: "paas-one-kubernetes-kubeadm-tasks"
+spec:
+  template:
+    metadata:
+      labels:
+        app: "kubernetes-kubeadm-tasks"
+    spec:
+      serviceAccountName: paas-one-manager-sa
+      restartPolicy: OnFailure
+      containers:
+      - name: kubeadm
+        image: {{ .Values.jobImage }}
+        imagePullPolicy: IfNotPresent
+        command: [ '/scripts/configure-cluster.sh' ]
+        env:
+        - name: KUBECONFIG
+          value: "/etc/kubernetes/admin.conf"
+        volumeMounts:
+        - mountPath: /scripts
+          name: scripts
+      volumes:
+      - name: scripts
+        configMap:
+          name: "paas-one-kubeadm-scripts"
+          defaultMode: 0777
+{{- end }}

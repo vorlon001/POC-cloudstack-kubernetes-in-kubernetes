@@ -1,0 +1,270 @@
+# Default values for paas-kubernetes-separated chart
+
+stage001: false
+stage002: false
+stage003: false
+stage010: false
+
+
+etcdImage: harbor.iblog.pro/registry.k8s.io/etcd:3.6.8-0
+
+# Global settings
+global:
+  namespace: cluster
+  clusterName: paas-one
+  etcdCount: 3
+  serviceClusterIPRange: 244.1.0.0/16
+  serviceApiserver: 244.1.0.1
+  clusterCIDR: 244.2.0.0/16
+  advertiseAddress: 12.0.100.97
+  serviceNodePortRange: 30000-32767
+  caDuration: 876000h
+  caRenewBefore: 87600h
+  saDuration: 87600h # 3650d
+  saRenewBefore: 8760h # 365d
+  agentDuration: 87600h # 3650d
+  agentRenewBefore: 8760h # 365d
+  frontCaDuration: 87600h # 3650d
+  frontCaRenewBefore: 8760h # 365d
+  crtDuration: 87600h
+  crtRenewBefore: 8760h
+
+# Image settings
+images:
+  kubeApiserver:
+    repository: harbor.iblog.pro/registry.k8s.io/kube-apiserver
+    tag: v1.36.1
+    pullPolicy: Always
+  kubeScheduler:
+    repository: harbor.iblog.pro/registry.k8s.io/kube-scheduler
+    tag: v1.36.1
+    pullPolicy: IfNotPresent
+  kubeControllerManager:
+    repository: harbor.iblog.pro/registry.k8s.io/kube-controller-manager
+    tag: v1.36.1
+    pullPolicy: IfNotPresent
+  konnectivityServer:
+    repository: registry.k8s.io/kas-network-proxy/proxy-server
+    tag: v0.34.0
+    pullPolicy: Always
+
+# Secret names
+#secrets:
+#  apiServerCertificate: paas-api-server-certificate
+#  ca: paas-ca
+#  apiServerKubeletClientCertificate: paas-api-server-kubelet-client-certificate
+#  frontProxyCaCertificate: paas-front-proxy-ca-certificate
+#  frontProxyClientCertificate: paas-front-proxy-client-certificate
+#  saCertificate: paas-sa-certificate
+#  datastoreCertificate: paas-datastore-certificate
+#  schedulerKubeconfig: paas-scheduler-kubeconfig
+#  controllerManagerKubeconfig: paas-controller-manager-kubeconfig
+#  konnectivityKubeconfig: paas-konnectivity-kubeconfig
+
+# ConfigMap names
+configMaps:
+  auditPolicy: tenant-audit-policy
+#  konnectivityEgressSelector: paas-konnectivity-egress-selector-configuration
+
+# Service account
+serviceAccount:
+  name: default
+
+# Labels
+labels:
+  kamaji:
+    component: deployment
+    name: paas
+    project: kamaji
+  tenant: paas
+
+# ==================== kube-apiserver ====================
+kubeApiserver:
+  enabled: true
+  replicaCount: 1
+  securePort: 6443
+  etcdServers: >-
+    {{- $c := .Values.global.clusterName -}}
+    {{- $count := int .Values.global.etcdCount -}}
+    {{- $hosts := list -}}
+    {{- range $i := until $count -}}
+      {{- $host := printf "https://%s-etcd-%d.%s-etcd-headless.cluster.svc:2379" $c $i $c -}}
+      {{- $hosts = append $hosts $host -}}
+    {{- end -}}
+    {{- join "," $hosts -}}
+#  etcdServers:
+#    - https://paas-one-etcd-0.paas-one-etcd-headless.cluster.svc:2379
+#    - https://paas-one-etcd-0.paas-one-etcd-headless.cluster.svc:2379
+#    - https://paas-one-etcd-0.paas-one-etcd-headless.cluster.svc:2379
+#  etcdPrefix: /cluster1_paas
+  serviceAccountIssuer: https://kubernetes.default.svc.cluster.local
+  tlsMinVersion: VersionTLS13
+  tlsCipherSuites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256
+  authorizationMode: Node,RBAC
+  enableAdmissionPlugins: ResourceQuota,LimitRanger
+  requestTimeout: 300s
+  eventTTL: 1h0m0s
+  defaultNotReadyTolerationSeconds: 300
+  defaultUnreachableTolerationSeconds: 300
+  profiling: false
+  anonymousAuth: true
+  enableAggregatorRouting: false
+  bindAddress: 0.0.0.0
+  allowPrivileged: true
+  enableBootstrapTokenAuth: true
+  etcdCompactionInterval: 0
+  audit:
+    logFormat: json
+    logMaxAge: 7
+    logMaxBackup: 10
+    logMaxSize: 100
+    logPath: /dev/stdout
+  probes:
+    liveness:
+      path: /livez
+      port: probe-port
+      scheme: HTTPS
+      failureThreshold: 3
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 1
+    readiness:
+      path: /readyz
+      port: probe-port
+      scheme: HTTPS
+      failureThreshold: 3
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 1
+    startup:
+      path: /livez
+      port: probe-port
+      scheme: HTTPS
+      failureThreshold: 3
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 1
+  resources: {}
+  # Example:
+  #   limits:
+  #     cpu: 500m
+  #     memory: 1Gi
+  #   requests:
+  #     cpu: 250m
+  #     memory: 512Mi
+
+# ==================== kube-scheduler ====================
+kubeScheduler:
+  enabled: true
+  replicaCount: 2
+  bindAddress: 0.0.0.0
+  leaderElect: true
+  profiling: false
+  probes:
+    liveness:
+      path: /healthz
+      port: probe-port
+      scheme: HTTPS
+      failureThreshold: 3
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 1
+    startup:
+      path: /healthz
+      port: probe-port
+      scheme: HTTPS
+      failureThreshold: 3
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 1
+  resources: {}
+  # Example:
+  #   limits:
+  #     cpu: 100m
+  #     memory: 256Mi
+  #   requests:
+  #     cpu: 50m
+  #     memory: 128Mi
+
+# ==================== kube-controller-manager ====================
+kubeControllerManager:
+  enabled: true
+  replicaCount: 2
+  bindAddress: 0.0.0.0
+  leaderElect: true
+  profiling: false
+  allocateNodeCIDRs: true
+  useServiceAccountCredentials: true
+  controllers: "*,bootstrapsigner,tokencleaner"
+  probes:
+    liveness:
+      path: /healthz
+      port: probe-port
+      scheme: HTTPS
+      failureThreshold: 3
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 1
+    startup:
+      path: /healthz
+      port: probe-port
+      scheme: HTTPS
+      failureThreshold: 3
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 1
+  resources: {}
+  # Example:
+  #   limits:
+  #     cpu: 200m
+  #     memory: 512Mi
+  #   requests:
+  #     cpu: 100m
+  #     memory: 256Mi
+
+# ==================== konnectivity-server ====================
+konnectivityServer:
+  enabled: true
+  replicaCount: 2
+  adminPort: 8133
+  agentPort: 16443
+  healthPort: 8134
+  agentNamespace: kube-system
+  agentServiceAccount: konnectivity-agent
+  authenticationAudience: system:konnectivity-server
+  mode: grpc
+  serverCount: 3
+  serverPort: 0
+  udsName: /run/konnectivity/konnectivity-server.socket
+  probes:
+    liveness:
+      path: /healthz
+      port: 8134
+      scheme: HTTP
+      failureThreshold: 3
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 60
+  resources: {}
+  # Example:
+  #   limits:
+  #     cpu: 100m
+  #     memory: 256Mi
+  #   requests:
+  #     cpu: 50m
+  #     memory: 128Mi
+
+# Pod settings (common for all deployments)
+pod:
+  terminationGracePeriodSeconds: 30
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+  schedulerName: default-scheduler
+
+# Deployment strategy (common for all deployments)
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 100%
+    maxUnavailable: 0

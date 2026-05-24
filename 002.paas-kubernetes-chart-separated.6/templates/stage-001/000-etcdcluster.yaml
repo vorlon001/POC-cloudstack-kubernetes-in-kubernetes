@@ -1,0 +1,210 @@
+{{- if .Values.stage001 }}
+---
+apiVersion: etcd.aenix.io/v1alpha1
+kind: EtcdCluster
+metadata:
+  name: {{ .Values.global.clusterName }}-etcd
+  namespace: {{ .Values.global.namespace }}
+spec:
+  podTemplate:
+    spec:
+      containers:
+      - name: etcd
+#        image: "quay.io/coreos/etcd:v3.5.12"
+        image: {{ .Values.etcdImage }}
+  storage:
+    volumeClaimTemplate:
+      spec:
+        storageClassName: managed-nfs-storage
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 4Gi
+  security:
+    tls:
+      peerTrustedCASecret: {{ .Values.global.clusterName }}-etcd-peer-ca-tls
+      peerSecret: {{ .Values.global.clusterName }}-etcd-peer-tls
+      serverSecret: {{ .Values.global.clusterName }}-etcd-server-tls
+      clientTrustedCASecret: {{ .Values.global.clusterName }}-etcd-ca-tls
+      clientSecret: {{ .Values.global.clusterName }}-etcd-client-tls
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ .Values.global.clusterName }}-etcd-selfsigning-issuer
+  namespace: {{ .Values.global.namespace }}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.global.clusterName }}-etcd-peer-ca
+  namespace: {{ .Values.global.namespace }}
+spec:
+  isCA: true
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "cert sign"
+  commonName: etcd-peer-ca
+  subject:
+    organizations:
+      - ACME Inc.
+    organizationalUnits:
+      - Widgets
+  secretName: {{ .Values.global.clusterName }}-etcd-peer-ca-tls
+  privateKey:
+# If provided, allowed values are either `RSA`, `ECDSA` or `Ed25519`.
+# If `algorithm` is specified and `size` is not provided,
+# key size of 2048 will be used for `RSA` key algorithm and
+# key size of 256 will be used for `ECDSA` key algorithm.
+# key size is ignored when using the `Ed25519` key algorithm.
+    algorithm: ECDSA
+# If `algorithm` is set to `RSA`, valid values are `2048`, `4096` or `8192`,
+# and will default to `2048` if not specified.
+# If `algorithm` is set to `ECDSA`, valid values are `256`, `384` or `521`,
+# and will default to `256` if not specified.
+# If `algorithm` is set to `Ed25519`, Size is ignored.
+# No other values are allowed.
+#    size: 4096
+  issuerRef:
+    name: {{ .Values.global.clusterName }}-etcd-selfsigning-issuer
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.global.clusterName }}-etcd-ca
+  namespace: {{ .Values.global.namespace }}
+spec:
+  isCA: true
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "cert sign"
+  commonName: etcd-ca
+  subject:
+    organizations:
+      - ACME Inc.
+    organizationalUnits:
+      - Widgets
+  secretName: {{ .Values.global.clusterName }}-etcd-ca-tls
+  privateKey:
+    algorithm: ECDSA
+#    size: 4096
+  issuerRef:
+    name: {{ .Values.global.clusterName }}-etcd-selfsigning-issuer
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ .Values.global.clusterName }}-etcd-peer-issuer
+  namespace: {{ .Values.global.namespace }}
+spec:
+  ca:
+    secretName: {{ .Values.global.clusterName }}-etcd-peer-ca-tls
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ .Values.global.clusterName }}-etcd-issuer
+  namespace: {{ .Values.global.namespace }}
+spec:
+  ca:
+    secretName: {{ .Values.global.clusterName }}-etcd-ca-tls
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.global.clusterName }}-etcd-server
+  namespace: {{ .Values.global.namespace }}
+spec:
+  secretName: {{ .Values.global.clusterName }}-etcd-server-tls
+  isCA: false
+  usages:
+    - "client auth"
+    - "server auth"
+    - "signing"
+    - "key encipherment"
+  dnsNames:
+  - {{ .Values.global.clusterName }}-etcd-0
+  - {{ .Values.global.clusterName }}-etcd-0.{{ .Values.global.clusterName }}-etcd-headless
+  - {{ .Values.global.clusterName }}-etcd-0.{{ .Values.global.clusterName }}-etcd-headless.{{ .Values.global.namespace }}.svc
+  - {{ .Values.global.clusterName }}-etcd-0.{{ .Values.global.clusterName }}-etcd-headless.{{ .Values.global.namespace }}.svc.cluster.local
+  - {{ .Values.global.clusterName }}-etcd-1
+  - {{ .Values.global.clusterName }}-etcd-1.{{ .Values.global.clusterName }}-etcd-headless
+  - {{ .Values.global.clusterName }}-etcd-1.{{ .Values.global.clusterName }}-etcd-headless.{{ .Values.global.namespace }}.svc
+  - {{ .Values.global.clusterName }}-etcd-1.{{ .Values.global.clusterName }}-etcd-headless.{{ .Values.global.namespace }}.svc.cluster.local
+  - {{ .Values.global.clusterName }}-etcd-2
+  - {{ .Values.global.clusterName }}-etcd-2.{{ .Values.global.clusterName }}-etcd-headless
+  - {{ .Values.global.clusterName }}-etcd-2.{{ .Values.global.clusterName }}-etcd-headless.{{ .Values.global.namespace }}.svc
+  - {{ .Values.global.clusterName }}-etcd-2.{{ .Values.global.clusterName }}-etcd-headless.{{ .Values.global.namespace }}.svc.cluster.local
+  - localhost
+  ipAddresses:
+  - 127.0.0.1
+  privateKey:
+    rotationPolicy: Always
+    algorithm: ECDSA
+#    size: 4096
+  issuerRef:
+    name: {{ .Values.global.clusterName }}-etcd-issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.global.clusterName }}-etcd-peer
+  namespace: {{ .Values.global.namespace }}
+spec:
+  secretName: {{ .Values.global.clusterName }}-etcd-peer-tls
+  isCA: false
+  usages:
+    - "server auth"
+    - "client auth"
+    - "signing"
+    - "key encipherment"
+  dnsNames:
+  - {{ .Values.global.clusterName }}-etcd-0
+  - {{ .Values.global.clusterName }}-etcd-0.{{ .Values.global.clusterName }}-etcd-headless
+  - {{ .Values.global.clusterName }}-etcd-0.{{ .Values.global.clusterName }}-etcd-headless.{{ .Values.global.namespace }}.svc
+  - {{ .Values.global.clusterName }}-etcd-0.{{ .Values.global.clusterName }}-etcd-headless.{{ .Values.global.namespace }}.svc.cluster.local
+  - {{ .Values.global.clusterName }}-etcd-1
+  - {{ .Values.global.clusterName }}-etcd-1.{{ .Values.global.clusterName }}-etcd-headless
+  - {{ .Values.global.clusterName }}-etcd-1.{{ .Values.global.clusterName }}-etcd-headless.{{ .Values.global.namespace }}.svc
+  - {{ .Values.global.clusterName }}-etcd-1.{{ .Values.global.clusterName }}-etcd-headless.{{ .Values.global.namespace }}.svc.cluster.local
+  - {{ .Values.global.clusterName }}-etcd-2
+  - {{ .Values.global.clusterName }}-etcd-2.{{ .Values.global.clusterName }}-etcd-headless
+  - {{ .Values.global.clusterName }}-etcd-2.{{ .Values.global.clusterName }}-etcd-headless.{{ .Values.global.namespace }}.svc
+  - {{ .Values.global.clusterName }}-etcd-2.{{ .Values.global.clusterName }}-etcd-headless.{{ .Values.global.namespace }}.svc.cluster.local
+  - localhost
+  - "127.0.0.1"
+  privateKey:
+    rotationPolicy: Always
+    algorithm: ECDSA
+#    size: 4096
+  issuerRef:
+    name: {{ .Values.global.clusterName }}-etcd-peer-issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.global.clusterName }}-etcd-client
+  namespace: {{ .Values.global.namespace }}
+spec:
+  commonName: root
+  secretName: {{ .Values.global.clusterName }}-etcd-client-tls
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "client auth"
+  privateKey:
+    rotationPolicy: Always
+    algorithm: ECDSA
+#    size: 4096
+  issuerRef:
+    name: {{ .Values.global.clusterName }}-etcd-issuer
+    kind: Issuer
+{{- end }}

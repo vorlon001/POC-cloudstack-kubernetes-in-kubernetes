@@ -1,0 +1,160 @@
+{{- if .Values.stage003 }}
+{{- if .Values.kubeControllerManager.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "paas-kubernetes-separated.fullname" . }}-controller-manager
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "paas-kubernetes-separated.labels" . | nindent 4 }}
+    component: kube-controller-manager
+spec:
+  replicas: {{ .Values.kubeControllerManager.replicaCount }}
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "paas-kubernetes-separated.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      component: kube-controller-manager
+  strategy:
+    type: {{ .Values.strategy.type }}
+    rollingUpdate:
+      maxSurge: {{ .Values.strategy.rollingUpdate.maxSurge }}
+      maxUnavailable: {{ .Values.strategy.rollingUpdate.maxUnavailable }}
+  template:
+    metadata:
+      annotations:
+        storage.kamaji.clastix.io/config: {{ randAlphaNum 32 | lower }}
+      labels:
+        app.kubernetes.io/name: {{ include "paas-kubernetes-separated.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        component: kube-controller-manager
+#        kamaji.clastix.io/component: {{ .Values.labels.kamaji.component }}
+#        kamaji.clastix.io/name: {{ .Values.global.clusterName }}
+#        kamaji.clastix.io/project: {{ .Values.labels.kamaji.project }}
+#        tenant.clastix.io: {{ .Values.labels.tenant }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      terminationGracePeriodSeconds: {{ .Values.pod.terminationGracePeriodSeconds }}
+      dnsPolicy: {{ .Values.pod.dnsPolicy }}
+      restartPolicy: {{ .Values.pod.restartPolicy }}
+      schedulerName: {{ .Values.pod.schedulerName }}
+      containers:
+        - name: kube-controller-manager
+          image: "{{ .Values.images.kubeControllerManager.repository }}:{{ .Values.images.kubeControllerManager.tag }}"
+          imagePullPolicy: {{ .Values.images.kubeControllerManager.pullPolicy }}
+          command:
+            - kube-controller-manager
+          args:
+            - --allocate-node-cidrs={{ .Values.kubeControllerManager.allocateNodeCIDRs }}
+            - --authentication-kubeconfig=/etc/kubernetes/controller-manager.conf
+            - --authorization-kubeconfig=/etc/kubernetes/controller-manager.conf
+            - --bind-address={{ .Values.kubeControllerManager.bindAddress }}
+            - --client-ca-file=/etc/kubernetes/pki/ca.crt
+            - --cluster-cidr={{ .Values.global.clusterCIDR }}
+            - --cluster-name={{ .Values.global.clusterName }}
+            - --cluster-signing-cert-file=/etc/kubernetes/pki/ca.crt
+            - --cluster-signing-key-file=/etc/kubernetes/pki/ca.key
+            - --controllers={{ .Values.kubeControllerManager.controllers }}
+            - --kubeconfig=/etc/kubernetes/controller-manager.conf
+            - --leader-elect={{ .Values.kubeControllerManager.leaderElect }}
+            - --profiling={{ .Values.kubeControllerManager.profiling }}
+            - --requestheader-client-ca-file=/etc/kubernetes/pki/front-proxy-ca.crt
+            - --root-ca-file=/etc/kubernetes/pki/ca.crt
+            - --service-account-private-key-file=/etc/kubernetes/pki/sa.key
+            - --service-cluster-ip-range={{ .Values.global.serviceClusterIPRange }}
+            - --use-service-account-credentials={{ .Values.kubeControllerManager.useServiceAccountCredentials }}
+          {{- with .Values.kubeControllerManager.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+          - containerPort: 10257
+            name: probe-port
+            protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.kubeControllerManager.probes.liveness.path }}
+              port: {{ .Values.kubeControllerManager.probes.liveness.port }}
+              scheme: {{ .Values.kubeControllerManager.probes.liveness.scheme }}
+            failureThreshold: {{ .Values.kubeControllerManager.probes.liveness.failureThreshold }}
+            periodSeconds: {{ .Values.kubeControllerManager.probes.liveness.periodSeconds }}
+            successThreshold: {{ .Values.kubeControllerManager.probes.liveness.successThreshold }}
+            timeoutSeconds: {{ .Values.kubeControllerManager.probes.liveness.timeoutSeconds }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.kubeControllerManager.probes.startup.path }}
+              port: {{ .Values.kubeControllerManager.probes.startup.port }}
+              scheme: {{ .Values.kubeControllerManager.probes.startup.scheme }}
+            failureThreshold: {{ .Values.kubeControllerManager.probes.startup.failureThreshold }}
+            periodSeconds: {{ .Values.kubeControllerManager.probes.startup.periodSeconds }}
+            successThreshold: {{ .Values.kubeControllerManager.probes.startup.successThreshold }}
+            timeoutSeconds: {{ .Values.kubeControllerManager.probes.startup.timeoutSeconds }}
+          volumeMounts:
+            - name: controller-manager-kubeconfig
+              mountPath: /etc/kubernetes
+              readOnly: true
+            - name: etc-kubernetes-pki
+              mountPath: /etc/kubernetes/pki
+              readOnly: true
+            - name: etc-ca-certificates
+              mountPath: /etc/ca-certificates
+              readOnly: true
+            - name: usr-share-ca-certificates
+              mountPath: /usr/share/ca-certificates
+              readOnly: true
+            - name: usr-local-share-ca-certificates
+              mountPath: /usr/local/share/ca-certificates
+              readOnly: true
+      volumes:
+        - name: controller-manager-kubeconfig
+          configMap:
+            name: {{ .Values.global.clusterName }}-controller-manager-kubeconfig
+            defaultMode: 420
+        - name: etc-kubernetes-pki
+          projected:
+            defaultMode: 420
+            sources:
+              - secret:
+                  name: {{ .Values.global.clusterName }}-pki-ca
+                  items:
+                    - key: tls.crt
+                      path: ca.crt
+                    - key: tls.key
+                      path: ca.key
+              - secret:
+                  name: {{ .Values.global.clusterName }}-pki-controller-manager-client
+                  items:
+                    - key: tls.crt
+                      path: controller.crt
+                    - key: tls.key
+                      path: controller.key
+              - secret:
+                  name: {{ .Values.global.clusterName }}-pki-front-proxy-ca
+                  items:
+                    - key: tls.crt
+                      path: front-proxy-ca.crt
+                    - key: tls.key
+                      path: front-proxy-ca.key
+              - secret:
+                  name: {{ .Values.global.clusterName }}-pki-sa
+                  items:
+                    - key: tls.crt
+                      path: sa.pub
+                    - key: tls.key
+                      path: sa.key
+        - name: etc-ca-certificates
+          secret:
+            secretName: {{ .Values.global.clusterName }}-pki-ca
+            defaultMode: 420
+        - name: usr-share-ca-certificates
+          secret:
+            secretName: {{ .Values.global.clusterName }}-pki-ca
+            defaultMode: 420
+        - name: usr-local-share-ca-certificates
+          secret:
+            secretName: {{ .Values.global.clusterName }}-pki-ca
+            defaultMode: 420
+{{- end }}
+{{- end }}

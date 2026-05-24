@@ -1,0 +1,298 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: "paas-one-selfsigning-issuer"
+  namespace: cluster
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "paas-one-pki-ca"
+  namespace: cluster
+spec:
+  commonName: "paas-one-ca"
+  secretName: "paas-one-pki-ca"
+  duration: 87600h
+  renewBefore: 8760h
+  subject:
+    organizations:
+    - "kubernetes"
+    countries:
+    - "RU"
+    localities:
+    - "URAL"
+    organizations:
+    - "Kubernetes"
+    organizationalUnits:
+    - "CA"
+    streetAddresses:
+    - "Yekaterinburg"
+  privateKey:
+    algorithm: ECDSA
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "cert sign"
+  isCA: true
+  issuerRef:
+    name: "paas-one-selfsigning-issuer"
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "paas-one-pki-sa"
+  namespace: cluster
+spec:
+  commonName: "paas-one-sa"
+  secretName: "paas-one-pki-sa"
+  duration: 87600h
+  renewBefore: 8760h
+  subject:
+    organizations:
+    - "kubernetes"
+    countries:
+    - "RU"
+    localities:
+    - "URAL"
+    organizations:
+    - "Kubernetes"
+    organizationalUnits:
+    - "CA"
+    streetAddresses:
+    - "Yekaterinburg"
+  privateKey:
+    algorithm: ECDSA
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "cert sign"
+  isCA: true
+  issuerRef:
+    name: "paas-one-selfsigning-issuer"
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: "paas-one-issuer"
+  namespace: cluster
+spec:
+  ca:
+    secretName: "paas-one-pki-ca"
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "paas-one-pki-apiserver-server"
+  namespace: cluster
+spec:
+  commonName: "kube-apiserver"
+  secretName: "paas-one-pki-apiserver-server"
+  duration: 8760h
+  renewBefore: 876h
+  subject:
+    organizations:
+    - "kubernetes"
+  privateKey:
+    algorithm: ECDSA
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "server auth"
+  dnsNames:
+  - "kubernetes"
+  - "kubernetes.default"
+  - "kubernetes.default.svc"
+  - "kubernetes.default.svc.cluster.local"
+  - "localhost"
+  - "node"
+  - "paas-one"
+  - "paas-one.cloud.local"
+  - "paas-one.cluster.svc"
+  - "paas-one.cluster.svc.cluster.local"
+  ipAddresses:
+  - "12.0.100.97"
+  - "244.1.0.1"
+  - "127.0.0.1"
+  issuerRef:
+    name: "paas-one-issuer"
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "paas-one-pki-controller-manager-client"
+  namespace: cluster
+spec:
+  commonName: "system:kube-controller-manager"
+  secretName: "paas-one-pki-controller-manager-client"
+  duration: 8760h
+  renewBefore: 876h
+  subject:
+    organizations:
+    - "system:kube-controller-manager"
+  privateKey:
+    algorithm: ECDSA
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "client auth"
+  issuerRef:
+    name: "paas-one-issuer"
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "paas-one-pki-scheduler-client"
+  namespace: cluster
+spec:
+  commonName: "system:kube-scheduler"
+  secretName: "paas-one-pki-scheduler-client"
+  duration: 8760h
+  renewBefore: 876h
+  subject:
+    organizations:
+    - "system:kube-scheduler"
+  privateKey:
+    algorithm: ECDSA
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "client auth"
+  issuerRef:
+    name: "paas-one-issuer"
+    kind: Issuer
+---
+# Source: kubernetes/templates/kubernetes-certs.yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "paas-one-pki-apiserver-kubelet-client"
+  namespace: cluster
+spec:
+  commonName: "paas-one-apiserver-kubelet-client"
+  secretName: "paas-one-pki-apiserver-kubelet-client"
+  duration: 8760h
+  renewBefore: 876h
+  subject:
+    organizations:
+    - "system:masters"
+  privateKey:
+    algorithm: ECDSA
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "client auth"
+  issuerRef:
+    name: "paas-one-issuer"
+    kind: Issuer
+---
+# Source: kubernetes/templates/kubernetes-front-proxy-certs.yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "paas-one-pki-front-proxy-ca"
+  namespace: cluster
+spec:
+  commonName: "paas-one-front-proxy-ca"
+  secretName: "paas-one-pki-front-proxy-ca"
+  duration: 87600h # 3650d
+  renewBefore: 8760h # 365d
+  subject:
+    organizations:
+    - "kubernetes"
+  privateKey:
+    algorithm: ECDSA
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "cert sign"
+  isCA: true
+  issuerRef:
+    name: "paas-one-selfsigning-issuer"
+    kind: Issuer
+---
+# Source: kubernetes/templates/kubernetes-front-proxy-certs.yaml
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: "paas-one-front-proxy-issuer"
+  namespace: cluster
+spec:
+  ca:
+    secretName: "paas-one-pki-front-proxy-ca"
+---
+# Source: kubernetes/templates/kubernetes-front-proxy-certs.yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "paas-one-pki-front-proxy-client"
+  namespace: cluster
+spec:
+  commonName: "paas-one-front-proxy-client"
+  secretName: "paas-one-pki-front-proxy-client"
+  duration: 8760h # 365d
+  renewBefore: 4380h # 178d
+  subject:
+    organizations:
+    - "system:masters"
+  privateKey:
+    algorithm: ECDSA
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "client auth"
+  issuerRef:
+    name: "paas-one-front-proxy-issuer"
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "paas-one-pki-konnectivity-server-client"
+  namespace: cluster
+spec:
+  commonName: "system:konnectivity-server"
+  secretName: "paas-one-pki-konnectivity-server-client"
+  duration: 8760h
+  renewBefore: 876h
+  subject:
+    organizations:
+    - "system:konnectivity-server"
+  privateKey:
+    algorithm: ECDSA
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "client auth"
+  issuerRef:
+    name: "paas-one-issuer"
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "paas-one-pki-admin-client"
+  namespace: cluster
+spec:
+  commonName: "kubernetes-super-admin"
+  secretName: "paas-one-pki-admin-client"
+  duration: 8760h
+  renewBefore: 876h
+  subject:
+    organizations:
+    - "system:masters"
+  privateKey:
+    algorithm: ECDSA
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "client auth"
+  issuerRef:
+    name: "paas-one-issuer"
+    kind: Issuer

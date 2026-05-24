@@ -1,0 +1,12 @@
+apiVersion: v2
+name: paas-kubernetes-separated
+description: Helm chart for PaaS Kubernetes control plane components with separate deployments (one pod per deployment)
+type: application
+version: 0.1.0
+appVersion: "1.36.1"
+keywords:
+  - kubernetes
+  - control-plane
+  - kamaji
+maintainers:
+  - name: PaaS Team

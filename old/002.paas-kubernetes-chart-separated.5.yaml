@@ -1,0 +1,766 @@
+---
+# Source: paas-kubernetes-separated/templates/controller-manager-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: paas-one-controller-manager-kubeconfig
+  namespace: cluster
+data:
+  controller-manager.conf: |
+    apiVersion: v1
+    clusters:
+    - cluster:
+        certificate-authority: /etc/kubernetes/pki/ca.crt
+        server: https://paas-one:6443
+      name: default-cluster
+    contexts:
+    - context:
+        cluster: default-cluster
+        namespace: default
+        user: default-auth
+      name: default-context
+    current-context: default-context
+    kind: Config
+    preferences: {}
+    users:
+    - name: default-auth
+      user:
+        client-certificate: /etc/kubernetes/pki/controller.crt
+        client-key: /etc/kubernetes/pki/controller.key
+---
+# Source: paas-kubernetes-separated/templates/konnectivity-egress-selector-configuration-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: paas-one-konnectivity-egress-selector-configuration
+  namespace: cluster
+data:
+  egress-selector-configuration.yaml: |
+    apiVersion: apiserver.k8s.io/v1beta1
+    egressSelections:
+    - connection:
+        proxyProtocol: GRPC
+        transport:
+          uds:
+            udsName: /run/konnectivity/konnectivity-server.socket
+      name: cluster
+    kind: EgressSelectorConfiguration
+---
+# Source: paas-kubernetes-separated/templates/konnectivity-server-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: paas-one-konnectivity-kubeconfig
+  namespace: cluster
+data:
+  konnectivity-server.conf: |
+    apiVersion: v1
+    clusters:
+    - cluster:
+        certificate-authority: /etc/kubernetes/pki/ca.crt
+        server: https://paas-one:6443
+      name: default-cluster
+    contexts:
+    - context:
+        cluster: default-cluster
+        namespace: default
+        user: default-auth
+      name: default-context
+    current-context: default-context
+    kind: Config
+    preferences: {}
+    users:
+    - name: default-auth
+      user:
+        client-certificate: /etc/kubernetes/pki/konnectivity.crt
+        client-key: /etc/kubernetes/pki/konnectivity.key
+---
+# Source: paas-kubernetes-separated/templates/scheduler-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: paas-one-scheduler-kubeconfig
+  namespace: cluster
+data:
+  scheduler.conf: |
+    apiVersion: v1
+    clusters:
+    - cluster:
+        certificate-authority: /etc/kubernetes/pki/ca.crt
+        server: https://paas-one:6443
+      name: default-cluster
+    contexts:
+    - context:
+        cluster: default-cluster
+        namespace: default
+        user: default-auth
+      name: default-context
+    current-context: default-context
+    kind: Config
+    preferences: {}
+    users:
+    - name: default-auth
+      user:
+        client-certificate: /etc/kubernetes/pki/scheduler.crt
+        client-key: /etc/kubernetes/pki/scheduler.key
+---
+# Source: paas-kubernetes-separated/templates/svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    kamaji.clastix.io/component: service
+    kamaji.clastix.io/name: paas-one
+    kamaji.clastix.io/project: kamaji
+    tenant.clastix.io: paas-one
+  annotations:
+    "lbipam.cilium.io/ips": "12.0.100.97"
+  name: paas-one
+  namespace: cluster
+spec:
+  ports:
+  - name: kube-apiserver
+    nodePort: 31778
+    port: 6443
+    protocol: TCP
+    targetPort: 6443
+  - name: konnectivity-server
+    nodePort: 30884
+    port: 16443
+    protocol: TCP
+    targetPort: 16443
+  selector:
+    kamaji.clastix.io/name: paas-one
+  type: LoadBalancer
+---
+# Source: paas-kubernetes-separated/templates/svc.yaml
+# Source: kubernetes/templates/apiserver-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: paas-one-apiserver
+  labels:
+    app: paas-one-apiserver
+  annotations:
+  namespace: cluster
+spec:
+  type: ClusterIP
+  ports:
+  - port: 6443
+    name: client
+  selector:
+    app: kubernetes-apiserver
+---
+# Source: paas-kubernetes-separated/templates/svc.yaml
+# Source: kubernetes/templates/controller-manager-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: paas-one-controller-manager
+  labels:
+    app: paas-one-controller-manager
+  namespace: cluster
+spec:
+  type: ClusterIP
+  ports:
+  - port: 10257
+    name: client
+  selector:
+    app: kubernetes-controller-manager
+---
+# Source: paas-kubernetes-separated/templates/svc.yaml
+# Source: kubernetes/templates/scheduler-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: paas-one-scheduler
+  labels:
+    app: paas-one-scheduler
+  namespace: cluster
+spec:
+  type: ClusterIP
+  ports:
+  - port: 10259
+    name: client
+  selector:
+    app: kubernetes-scheduler
+---
+# Source: paas-kubernetes-separated/templates/kube-apiserver-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: release-name-paas-kubernetes-separated-apiserver
+  namespace: cluster
+  labels:
+    helm.sh/chart: paas-kubernetes-separated-0.1.0
+    app.kubernetes.io/name: paas-kubernetes-separated
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "1.36.1"
+    app.kubernetes.io/managed-by: Helm
+    component: kube-apiserver
+spec:
+  replicas: 3
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: paas-kubernetes-separated
+      app.kubernetes.io/instance: release-name
+      component: kube-apiserver
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 0
+  template:
+    metadata:
+      annotations:
+        storage.kamaji.clastix.io/config: hih6fehui5nzm27q4qxnva8tse4ndika
+      labels:
+        app.kubernetes.io/name: paas-kubernetes-separated
+        app.kubernetes.io/instance: release-name
+        component: kube-apiserver
+        kamaji.clastix.io/component: deployment
+        kamaji.clastix.io/name: paas-one
+        kamaji.clastix.io/project: kamaji
+        tenant.clastix.io: paas
+    spec:
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      containers:
+        - name: kube-apiserver
+          image: "harbor.iblog.pro/registry.k8s.io/kube-apiserver:v1.36.1"
+          imagePullPolicy: Always
+          command:
+            - kube-apiserver
+          args:
+            - --advertise-address=12.0.100.97
+            - --allow-privileged=true
+            - --client-ca-file=/etc/kubernetes/pki/ca.crt
+            - --egress-selector-config-file=/etc/kubernetes/konnectivity/configurations/egress-selector-configuration.yaml
+            - --enable-admission-plugins=ResourceQuota,LimitRanger
+            - --enable-bootstrap-token-auth=true
+            - --etcd-cafile=/etc/kubernetes/pki/etcd/ca.crt
+            - --etcd-certfile=/etc/kubernetes/pki/etcd/server.crt
+            - --etcd-compaction-interval=0
+            - --etcd-keyfile=/etc/kubernetes/pki/etcd/server.key
+            - --etcd-prefix=paas-one
+            - --etcd-servers=https://paas-one-etcd-0.paas-one-etcd-headless.cluster.svc:2379,https://paas-one-etcd-1.paas-one-etcd-headless.cluster.svc:2379,https://paas-one-etcd-2.paas-one-etcd-headless.cluster.svc:2379
+            - --kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt
+            - --kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key
+            - --kubelet-preferred-address-types=InternalDNS,InternalIP,Hostname,ExternalDNS,ExternalIP
+            - --proxy-client-cert-file=/etc/kubernetes/pki/front-proxy-client.crt
+            - --proxy-client-key-file=/etc/kubernetes/pki/front-proxy-client.key
+            - --requestheader-allowed-names=front-proxy-client
+            - --requestheader-client-ca-file=/etc/kubernetes/pki/front-proxy-ca.crt
+            - --requestheader-extra-headers-prefix=X-Remote-Extra-
+            - --requestheader-group-headers=X-Remote-Group
+            - --requestheader-username-headers=X-Remote-User
+            - --secure-port=6443
+            - --service-account-issuer=https://kubernetes.default.svc.cluster.local
+            - --service-account-key-file=/etc/kubernetes/pki/sa.pub
+            - --service-account-signing-key-file=/etc/kubernetes/pki/sa.key
+            - --service-cluster-ip-range=244.1.0.0/16
+            - --tls-cert-file=/etc/kubernetes/pki/apiserver.crt
+            - --tls-private-key-file=/etc/kubernetes/pki/apiserver.key
+            - --audit-log-format=json
+            - --audit-log-maxage=7
+            - --audit-log-maxbackup=10
+            - --audit-log-maxsize=100
+            - --audit-log-path=/dev/stdout
+            - --authorization-webhook-cache-authorized-ttl=5m0s
+            - --authorization-webhook-cache-unauthorized-ttl=30s
+            - --audit-policy-file=/etc/kubernetes/audit/audit-policy.yaml
+            - --profiling=false
+            - --request-timeout=300s
+            - --tls-min-version=VersionTLS13
+            - --service-node-port-range=30000-32767
+            - --authorization-mode=Node,RBAC
+            - --default-not-ready-toleration-seconds=300
+            - --default-unreachable-toleration-seconds=300
+            - --enable-aggregator-routing=false
+            - --anonymous-auth=true
+            - --event-ttl=1h0m0s
+            - --bind-address=0.0.0.0
+            - --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256
+          ports:
+          - containerPort: 6443
+            name: probe-port
+            protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: probe-port
+              scheme: HTTPS
+            failureThreshold: 3
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: probe-port
+              scheme: HTTPS
+            failureThreshold: 3
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          startupProbe:
+            httpGet:
+              path: /livez
+              port: probe-port
+              scheme: HTTPS
+            failureThreshold: 3
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          volumeMounts:
+            - name: audit-policy
+              mountPath: /etc/kubernetes/audit
+              readOnly: true
+            - name: etc-kubernetes-pki
+              mountPath: /etc/kubernetes/pki
+              readOnly: true
+            - name: etc-ca-certificates
+              mountPath: /etc/ca-certificates
+              readOnly: true
+            - name: usr-share-ca-certificates
+              mountPath: /usr/share/ca-certificates
+              readOnly: true
+            - name: usr-local-share-ca-certificates
+              mountPath: /usr/local/share/ca-certificates
+              readOnly: true
+            - name: konnectivity-uds
+              mountPath: /run/konnectivity
+            - name: egress-selector-configuration
+              mountPath: /etc/kubernetes/konnectivity/configurations
+        - name: konnectivity-server
+          image: "registry.k8s.io/kas-network-proxy/proxy-server:v0.34.0"
+          imagePullPolicy: Always
+          command:
+            - /proxy-server
+          args:
+            - --admin-port=8133
+            - --agent-namespace=kube-system
+            - --agent-port=16443
+            - --agent-service-account=konnectivity-agent
+            - --authentication-audience=system:konnectivity-server
+            - --cluster-cert=/etc/kubernetes/pki/apiserver.crt
+            - --cluster-key=/etc/kubernetes/pki/apiserver.key
+            - --health-port=8134
+            - --kubeconfig=/etc/kubernetes/konnectivity-server.conf
+            - --mode=grpc
+            - --server-count=3
+            - --server-port=0
+            - --uds-name=/run/konnectivity/konnectivity-server.socket
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8134
+              scheme: HTTP
+            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 60
+          ports:
+            - name: agentport
+              containerPort: 16443
+              protocol: TCP
+            - name: adminport
+              containerPort: 8133
+              protocol: TCP
+            - name: healthport
+              containerPort: 8134
+              protocol: TCP
+          volumeMounts:
+            - name: etc-kubernetes-pki-konnectivity
+              mountPath: /etc/kubernetes/pki
+              readOnly: true
+            - name: konnectivity-server-kubeconfig
+              mountPath: /etc/kubernetes/konnectivity-server.conf
+              subPath: konnectivity-server.conf
+              readOnly: true
+            - name: konnectivity-uds
+              mountPath: /run/konnectivity
+
+      volumes:
+        - name: etc-kubernetes-pki-konnectivity
+          projected:
+            defaultMode: 420
+            sources:
+              - secret:
+                  name: paas-one-pki-ca
+                  items:
+                    - key: tls.crt
+                      path: ca.crt
+                    - key: tls.key
+                      path: ca.key
+              - secret:
+                  name: paas-one-pki-apiserver-server
+                  items:
+                    - key: tls.crt
+                      path: apiserver.crt
+                    - key: tls.key
+                      path: apiserver.key
+              - secret:
+                  name: paas-one-pki-konnectivity-server-client
+                  items:
+                    - key: tls.crt
+                      path: konnectivity.crt
+                    - key: tls.key
+                      path: konnectivity.key
+        - name: konnectivity-server-kubeconfig
+          configMap:
+            name: paas-one-konnectivity-kubeconfig
+            defaultMode: 420
+        - name: audit-policy
+          configMap:
+            name: tenant-audit-policy
+            defaultMode: 420
+        - name: etc-kubernetes-pki
+          projected:
+            defaultMode: 420
+            sources:
+              - secret:
+                  name: paas-one-pki-apiserver-server
+                  items:
+                    - key: tls.crt
+                      path: apiserver.crt
+                    - key: tls.key
+                      path: apiserver.key
+              - secret:
+                  name: paas-one-pki-ca
+                  items:
+                    - key: tls.crt
+                      path: ca.crt
+                    - key: tls.key
+                      path: ca.key
+              - secret:
+                  name: paas-one-pki-apiserver-kubelet-client
+                  items:
+                    - key: tls.crt
+                      path: apiserver-kubelet-client.crt
+                    - key: tls.key
+                      path: apiserver-kubelet-client.key
+              - secret:
+                  name: paas-one-pki-front-proxy-ca
+                  items:
+                    - key: tls.crt
+                      path: front-proxy-ca.crt
+                    - key: tls.key
+                      path: front-proxy-ca.key
+              - secret:
+                  name: paas-one-pki-front-proxy-client
+                  items:
+                    - key: tls.crt
+                      path: front-proxy-client.crt
+                    - key: tls.key
+                      path: front-proxy-client.key
+              - secret:
+                  name: paas-one-pki-sa
+                  items:
+                    - key: tls.crt
+                      path: sa.pub
+                    - key: tls.key
+                      path: sa.key
+              - secret:
+                  name: paas-one-etcd-server-tls
+                  items:
+                    - key: ca.crt
+                      path: etcd/ca.crt
+                    - key: tls.crt
+                      path: etcd/server.crt
+                    - key: tls.key
+                      path: etcd/server.key
+        - name: etc-ca-certificates
+          secret:
+            secretName: paas-one-pki-ca
+            defaultMode: 420
+        - name: usr-share-ca-certificates
+          secret:
+            secretName: paas-one-pki-ca
+            defaultMode: 420
+        - name: usr-local-share-ca-certificates
+          secret:
+            secretName: paas-one-pki-ca
+            defaultMode: 420
+        - name: konnectivity-uds
+          emptyDir:
+            medium: Memory
+        - name: egress-selector-configuration
+          configMap:
+            name: paas-one-konnectivity-egress-selector-configuration
+            defaultMode: 420
+---
+# Source: paas-kubernetes-separated/templates/kube-controller-manager-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: release-name-paas-kubernetes-separated-controller-manager
+  namespace: cluster
+  labels:
+    helm.sh/chart: paas-kubernetes-separated-0.1.0
+    app.kubernetes.io/name: paas-kubernetes-separated
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "1.36.1"
+    app.kubernetes.io/managed-by: Helm
+    component: kube-controller-manager
+spec:
+  replicas: 3
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: paas-kubernetes-separated
+      app.kubernetes.io/instance: release-name
+      component: kube-controller-manager
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 0
+  template:
+    metadata:
+      annotations:
+        storage.kamaji.clastix.io/config: 5xdm7ouufgkgsy5s8rielfxthbrwxfbb
+      labels:
+        app.kubernetes.io/name: paas-kubernetes-separated
+        app.kubernetes.io/instance: release-name
+        component: kube-controller-manager
+#        kamaji.clastix.io/component: deployment
+#        kamaji.clastix.io/name: paas-one
+#        kamaji.clastix.io/project: kamaji
+#        tenant.clastix.io: paas
+    spec:
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      containers:
+        - name: kube-controller-manager
+          image: "harbor.iblog.pro/registry.k8s.io/kube-controller-manager:v1.36.1"
+          imagePullPolicy: IfNotPresent
+          command:
+            - kube-controller-manager
+          args:
+            - --allocate-node-cidrs=true
+            - --authentication-kubeconfig=/etc/kubernetes/controller-manager.conf
+            - --authorization-kubeconfig=/etc/kubernetes/controller-manager.conf
+            - --bind-address=0.0.0.0
+            - --client-ca-file=/etc/kubernetes/pki/ca.crt
+            - --cluster-cidr=244.2.0.0/16
+            - --cluster-name=paas-one
+            - --cluster-signing-cert-file=/etc/kubernetes/pki/ca.crt
+            - --cluster-signing-key-file=/etc/kubernetes/pki/ca.key
+            - --controllers=*,bootstrapsigner,tokencleaner
+            - --kubeconfig=/etc/kubernetes/controller-manager.conf
+            - --leader-elect=true
+            - --profiling=false
+            - --requestheader-client-ca-file=/etc/kubernetes/pki/front-proxy-ca.crt
+            - --root-ca-file=/etc/kubernetes/pki/ca.crt
+            - --service-account-private-key-file=/etc/kubernetes/pki/sa.key
+            - --service-cluster-ip-range=244.1.0.0/16
+            - --use-service-account-credentials=true
+          ports:
+          - containerPort: 10257
+            name: probe-port
+            protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: probe-port
+              scheme: HTTPS
+            failureThreshold: 3
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: probe-port
+              scheme: HTTPS
+            failureThreshold: 3
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          volumeMounts:
+            - name: controller-manager-kubeconfig
+              mountPath: /etc/kubernetes
+              readOnly: true
+            - name: etc-kubernetes-pki
+              mountPath: /etc/kubernetes/pki
+              readOnly: true
+            - name: etc-ca-certificates
+              mountPath: /etc/ca-certificates
+              readOnly: true
+            - name: usr-share-ca-certificates
+              mountPath: /usr/share/ca-certificates
+              readOnly: true
+            - name: usr-local-share-ca-certificates
+              mountPath: /usr/local/share/ca-certificates
+              readOnly: true
+      volumes:
+        - name: controller-manager-kubeconfig
+          configMap:
+            name: paas-one-controller-manager-kubeconfig
+            defaultMode: 420
+        - name: etc-kubernetes-pki
+          projected:
+            defaultMode: 420
+            sources:
+              - secret:
+                  name: paas-one-pki-ca
+                  items:
+                    - key: tls.crt
+                      path: ca.crt
+                    - key: tls.key
+                      path: ca.key
+              - secret:
+                  name: paas-one-pki-controller-manager-client
+                  items:
+                    - key: tls.crt
+                      path: controller.crt
+                    - key: tls.key
+                      path: controller.key
+              - secret:
+                  name: paas-one-pki-front-proxy-ca
+                  items:
+                    - key: tls.crt
+                      path: front-proxy-ca.crt
+                    - key: tls.key
+                      path: front-proxy-ca.key
+              - secret:
+                  name: paas-one-pki-sa
+                  items:
+                    - key: tls.crt
+                      path: sa.pub
+                    - key: tls.key
+                      path: sa.key
+        - name: etc-ca-certificates
+          secret:
+            secretName: paas-one-pki-ca
+            defaultMode: 420
+        - name: usr-share-ca-certificates
+          secret:
+            secretName: paas-one-pki-ca
+            defaultMode: 420
+        - name: usr-local-share-ca-certificates
+          secret:
+            secretName: paas-one-pki-ca
+            defaultMode: 420
+---
+# Source: paas-kubernetes-separated/templates/kube-scheduler-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: release-name-paas-kubernetes-separated-scheduler
+  namespace: cluster
+  labels:
+    helm.sh/chart: paas-kubernetes-separated-0.1.0
+    app.kubernetes.io/name: paas-kubernetes-separated
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "1.36.1"
+    app.kubernetes.io/managed-by: Helm
+    component: kube-scheduler
+spec:
+  replicas: 3
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: paas-kubernetes-separated
+      app.kubernetes.io/instance: release-name
+      component: kube-scheduler
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 0
+  template:
+    metadata:
+      annotations:
+        storage.kamaji.clastix.io/config: qwtz5qkdgivol7jexqobwubqxzuigqtt
+      labels:
+        app.kubernetes.io/name: paas-kubernetes-separated
+        app.kubernetes.io/instance: release-name
+        component: kube-scheduler
+#        kamaji.clastix.io/component: deployment
+#        kamaji.clastix.io/name: paas-one
+#        kamaji.clastix.io/project: kamaji
+#        tenant.clastix.io: paas
+    spec:
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      containers:
+        - name: kube-scheduler
+          image: "harbor.iblog.pro/registry.k8s.io/kube-scheduler:v1.36.1"
+          imagePullPolicy: IfNotPresent
+          command:
+            - kube-scheduler
+          args:
+            - --authentication-kubeconfig=/etc/kubernetes/scheduler.conf
+            - --authorization-kubeconfig=/etc/kubernetes/scheduler.conf
+            - --bind-address=0.0.0.0
+            - --kubeconfig=/etc/kubernetes/scheduler.conf
+            - --leader-elect=true
+            - --profiling=false
+          ports:
+          - containerPort: 10259
+            name: probe-port
+            protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: probe-port
+              scheme: HTTPS
+            failureThreshold: 3
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: probe-port
+              scheme: HTTPS
+            failureThreshold: 3
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          volumeMounts:
+            - name: scheduler-kubeconfig
+              mountPath: /etc/kubernetes
+              readOnly: true
+            - name: etc-kubernetes-pki
+              mountPath: /etc/kubernetes/pki
+              readOnly: true
+      volumes:
+        - name: scheduler-kubeconfig
+          configMap:
+            name: paas-one-scheduler-kubeconfig
+            defaultMode: 420
+        - name: etc-kubernetes-pki
+          projected:
+            defaultMode: 420
+            sources:
+              - secret:
+                  name: paas-one-pki-ca
+                  items:
+                    - key: tls.crt
+                      path: ca.crt
+                    - key: tls.key
+                      path: ca.key
+              - secret:
+                  name: paas-one-pki-scheduler-client
+                  items:
+                    - key: tls.crt
+                      path: scheduler.crt
+                    - key: tls.key
+                      path: scheduler.key

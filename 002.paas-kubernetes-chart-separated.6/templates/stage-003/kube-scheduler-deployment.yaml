@@ -1,0 +1,115 @@
+{{- if .Values.stage003 }}
+{{- if .Values.kubeScheduler.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "paas-kubernetes-separated.fullname" . }}-scheduler
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "paas-kubernetes-separated.labels" . | nindent 4 }}
+    component: kube-scheduler
+spec:
+  replicas: {{ .Values.kubeScheduler.replicaCount }}
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "paas-kubernetes-separated.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      component: kube-scheduler
+  strategy:
+    type: {{ .Values.strategy.type }}
+    rollingUpdate:
+      maxSurge: {{ .Values.strategy.rollingUpdate.maxSurge }}
+      maxUnavailable: {{ .Values.strategy.rollingUpdate.maxUnavailable }}
+  template:
+    metadata:
+      annotations:
+        storage.kamaji.clastix.io/config: {{ randAlphaNum 32 | lower }}
+      labels:
+        app.kubernetes.io/name: {{ include "paas-kubernetes-separated.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        component: kube-scheduler
+#        kamaji.clastix.io/component: {{ .Values.labels.kamaji.component }}
+#        kamaji.clastix.io/name: {{ .Values.global.clusterName }}
+#        kamaji.clastix.io/project: {{ .Values.labels.kamaji.project }}
+#        tenant.clastix.io: {{ .Values.labels.tenant }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      terminationGracePeriodSeconds: {{ .Values.pod.terminationGracePeriodSeconds }}
+      dnsPolicy: {{ .Values.pod.dnsPolicy }}
+      restartPolicy: {{ .Values.pod.restartPolicy }}
+      schedulerName: {{ .Values.pod.schedulerName }}
+      containers:
+        - name: kube-scheduler
+          image: "{{ .Values.images.kubeScheduler.repository }}:{{ .Values.images.kubeScheduler.tag }}"
+          imagePullPolicy: {{ .Values.images.kubeScheduler.pullPolicy }}
+          command:
+            - kube-scheduler
+          args:
+            - --authentication-kubeconfig=/etc/kubernetes/scheduler.conf
+            - --authorization-kubeconfig=/etc/kubernetes/scheduler.conf
+            - --bind-address={{ .Values.kubeScheduler.bindAddress }}
+            - --kubeconfig=/etc/kubernetes/scheduler.conf
+            - --leader-elect={{ .Values.kubeScheduler.leaderElect }}
+            - --profiling={{ .Values.kubeScheduler.profiling }}
+          {{- with .Values.kubeScheduler.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+          - containerPort: 10259
+            name: probe-port
+            protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.kubeScheduler.probes.liveness.path }}
+              port: {{ .Values.kubeScheduler.probes.liveness.port }}
+              scheme: {{ .Values.kubeScheduler.probes.liveness.scheme }}
+            failureThreshold: {{ .Values.kubeScheduler.probes.liveness.failureThreshold }}
+            periodSeconds: {{ .Values.kubeScheduler.probes.liveness.periodSeconds }}
+            successThreshold: {{ .Values.kubeScheduler.probes.liveness.successThreshold }}
+            timeoutSeconds: {{ .Values.kubeScheduler.probes.liveness.timeoutSeconds }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.kubeScheduler.probes.startup.path }}
+              port: {{ .Values.kubeScheduler.probes.startup.port }}
+              scheme: {{ .Values.kubeScheduler.probes.startup.scheme }}
+            failureThreshold: {{ .Values.kubeScheduler.probes.startup.failureThreshold }}
+            periodSeconds: {{ .Values.kubeScheduler.probes.startup.periodSeconds }}
+            successThreshold: {{ .Values.kubeScheduler.probes.startup.successThreshold }}
+            timeoutSeconds: {{ .Values.kubeScheduler.probes.startup.timeoutSeconds }}
+          volumeMounts:
+            - name: scheduler-kubeconfig
+              mountPath: /etc/kubernetes
+              readOnly: true
+            - name: etc-kubernetes-pki
+              mountPath: /etc/kubernetes/pki
+              readOnly: true
+      volumes:
+        - name: scheduler-kubeconfig
+          configMap:
+            name: {{ .Values.global.clusterName }}-scheduler-kubeconfig
+            defaultMode: 420
+        - name: etc-kubernetes-pki
+          projected:
+            defaultMode: 420
+            sources:
+              - secret:
+                  name: {{ .Values.global.clusterName }}-pki-ca
+                  items:
+                    - key: tls.crt
+                      path: ca.crt
+                    - key: tls.key
+                      path: ca.key
+              - secret:
+                  name: {{ .Values.global.clusterName }}-pki-scheduler-client
+                  items:
+                    - key: tls.crt
+                      path: scheduler.crt
+                    - key: tls.key
+                      path: scheduler.key
+
+
+{{- end }}
+{{- end }}

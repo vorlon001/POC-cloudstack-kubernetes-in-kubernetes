@@ -1,0 +1,298 @@
+{{- if .Values.stage002 }}
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: "{{ .Values.global.clusterName }}-selfsigning-issuer"
+  namespace: {{ .Values.global.namespace }}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "{{ .Values.global.clusterName }}-pki-ca"
+  namespace: {{ .Values.global.namespace }}
+spec:
+  commonName: "{{ .Values.global.clusterName }}-ca"
+  secretName: "{{ .Values.global.clusterName }}-pki-ca"
+  duration: {{ .Values.global.caDuration }}
+  renewBefore: {{ .Values.global.caRenewBefore }}
+  subject:
+    organizations:
+    - "kubernetes"
+    countries:
+    - "RU"
+    localities:
+    - "URAL"
+    organizationalUnits:
+    - "CA"
+    streetAddresses:
+    - "Yekaterinburg"
+  privateKey:
+    algorithm: ECDSA
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "cert sign"
+  isCA: true
+  issuerRef:
+    name: "{{ .Values.global.clusterName }}-selfsigning-issuer"
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "{{ .Values.global.clusterName }}-pki-sa"
+  namespace: {{ .Values.global.namespace }}
+spec:
+  commonName: "{{ .Values.global.clusterName }}-sa"
+  secretName: "{{ .Values.global.clusterName }}-pki-sa"
+  duration: {{ .Values.global.saDuration }}
+  renewBefore: {{ .Values.global.saRenewBefore }}
+  subject:
+    organizations:
+    - "kubernetes"
+    countries:
+    - "RU"
+    localities:
+    - "URAL"
+    organizations:
+    - "Kubernetes"
+    organizationalUnits:
+    - "CA"
+    streetAddresses:
+    - "Yekaterinburg"
+  privateKey:
+    algorithm: ECDSA
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "cert sign"
+  isCA: true
+  issuerRef:
+    name: "{{ .Values.global.clusterName }}-selfsigning-issuer"
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: "{{ .Values.global.clusterName }}-issuer"
+  namespace: {{ .Values.global.namespace }}
+spec:
+  ca:
+    secretName: "{{ .Values.global.clusterName }}-pki-ca"
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "{{ .Values.global.clusterName }}-pki-apiserver-server"
+  namespace: {{ .Values.global.namespace }}
+spec:
+  commonName: "kube-apiserver"
+  secretName: "{{ .Values.global.clusterName }}-pki-apiserver-server"
+  duration: {{ .Values.global.crtDuration }}
+  renewBefore: {{ .Values.global.crtRenewBefore }}
+  subject:
+    organizations:
+    - "kubernetes"
+  privateKey:
+    algorithm: ECDSA
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "server auth"
+  dnsNames:
+  - "kubernetes"
+  - "kubernetes.default"
+  - "kubernetes.default.svc"
+  - "kubernetes.default.svc.cluster.local"
+  - "localhost"
+  - "node"
+  - "{{ .Values.global.clusterName }}"
+  - "{{ .Values.global.clusterName }}.cloud.local"
+  - "{{ .Values.global.clusterName }}.cluster.svc"
+  - "{{ .Values.global.clusterName }}.cluster.svc.cluster.local"
+  ipAddresses:
+  - "{{ .Values.global.advertiseAddress }}"
+  - "{{ .Values.global.serviceApiserver }}"
+  - "127.0.0.1"
+  issuerRef:
+    name: "{{ .Values.global.clusterName }}-issuer"
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "{{ .Values.global.clusterName }}-pki-controller-manager-client"
+  namespace: {{ .Values.global.namespace }}
+spec:
+  commonName: "system:kube-controller-manager"
+  secretName: "{{ .Values.global.clusterName }}-pki-controller-manager-client"
+  duration: {{ .Values.global.crtDuration }}
+  renewBefore: {{ .Values.global.crtRenewBefore }}
+  subject:
+    organizations:
+    - "system:kube-controller-manager"
+  privateKey:
+    algorithm: ECDSA
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "client auth"
+  issuerRef:
+    name: "{{ .Values.global.clusterName }}-issuer"
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "{{ .Values.global.clusterName }}-pki-scheduler-client"
+  namespace: {{ .Values.global.namespace }}
+spec:
+  commonName: "system:kube-scheduler"
+  secretName: "{{ .Values.global.clusterName }}-pki-scheduler-client"
+  duration: {{ .Values.global.crtDuration }}
+  renewBefore: {{ .Values.global.crtRenewBefore }}
+  subject:
+    organizations:
+    - "system:kube-scheduler"
+  privateKey:
+    algorithm: ECDSA
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "client auth"
+  issuerRef:
+    name: "{{ .Values.global.clusterName }}-issuer"
+    kind: Issuer
+---
+# Source: kubernetes/templates/kubernetes-certs.yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "{{ .Values.global.clusterName }}-pki-apiserver-kubelet-client"
+  namespace: {{ .Values.global.namespace }}
+spec:
+  commonName: "{{ .Values.global.clusterName }}-apiserver-kubelet-client"
+  secretName: "{{ .Values.global.clusterName }}-pki-apiserver-kubelet-client"
+  duration: {{ .Values.global.crtDuration }}
+  renewBefore: {{ .Values.global.crtRenewBefore }}
+  subject:
+    organizations:
+    - "system:masters"
+  privateKey:
+    algorithm: ECDSA
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "client auth"
+  issuerRef:
+    name: "{{ .Values.global.clusterName }}-issuer"
+    kind: Issuer
+---
+# Source: kubernetes/templates/kubernetes-front-proxy-certs.yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "{{ .Values.global.clusterName }}-pki-front-proxy-ca"
+  namespace: {{ .Values.global.namespace }}
+spec:
+  commonName: "{{ .Values.global.clusterName }}-front-proxy-ca"
+  secretName: "{{ .Values.global.clusterName }}-pki-front-proxy-ca"
+  duration: {{ .Values.global.frontCaDuration }}
+  renewBefore: {{ .Values.global.frontCaRenewBefore }}
+  subject:
+    organizations:
+    - "kubernetes"
+  privateKey:
+    algorithm: ECDSA
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "cert sign"
+  isCA: true
+  issuerRef:
+    name: "{{ .Values.global.clusterName }}-selfsigning-issuer"
+    kind: Issuer
+---
+# Source: kubernetes/templates/kubernetes-front-proxy-certs.yaml
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: "{{ .Values.global.clusterName }}-front-proxy-issuer"
+  namespace: {{ .Values.global.namespace }}
+spec:
+  ca:
+    secretName: "{{ .Values.global.clusterName }}-pki-front-proxy-ca"
+---
+# Source: kubernetes/templates/kubernetes-front-proxy-certs.yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "{{ .Values.global.clusterName }}-pki-front-proxy-client"
+  namespace: {{ .Values.global.namespace }}
+spec:
+  commonName: "{{ .Values.global.clusterName }}-front-proxy-client"
+  secretName: "{{ .Values.global.clusterName }}-pki-front-proxy-client"
+  duration: {{ .Values.global.crtDuration }}
+  renewBefore: {{ .Values.global.crtRenewBefore }}
+  subject:
+    organizations:
+    - "system:masters"
+  privateKey:
+    algorithm: ECDSA
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "client auth"
+  issuerRef:
+    name: "{{ .Values.global.clusterName }}-front-proxy-issuer"
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "{{ .Values.global.clusterName }}-pki-konnectivity-server-client"
+  namespace: {{ .Values.global.namespace }}
+spec:
+  commonName: "system:konnectivity-server"
+  secretName: "{{ .Values.global.clusterName }}-pki-konnectivity-server-client"
+  duration: {{ .Values.global.agentDuration }}
+  renewBefore: {{ .Values.global.agentRenewBefore }}
+  subject:
+    organizations:
+    - "system:konnectivity-server"
+  privateKey:
+    algorithm: ECDSA
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "client auth"
+  issuerRef:
+    name: "{{ .Values.global.clusterName }}-issuer"
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "{{ .Values.global.clusterName }}-pki-admin-client"
+  namespace: {{ .Values.global.namespace }}
+spec:
+  commonName: "kubernetes-super-admin"
+  secretName: "{{ .Values.global.clusterName }}-pki-admin-client"
+  duration: {{ .Values.global.crtDuration }}
+  renewBefore: {{ .Values.global.crtRenewBefore }}
+  subject:
+    organizations:
+    - "system:masters"
+  privateKey:
+    algorithm: ECDSA
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "client auth"
+  issuerRef:
+    name: "{{ .Values.global.clusterName }}-issuer"
+    kind: Issuer
+{{- end }}

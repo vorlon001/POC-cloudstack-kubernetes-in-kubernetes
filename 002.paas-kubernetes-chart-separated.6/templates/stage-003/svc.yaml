@@ -1,0 +1,79 @@
+{{- if .Values.stage003 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    kamaji.clastix.io/component: service
+    kamaji.clastix.io/name: {{ .Values.global.clusterName }}
+    kamaji.clastix.io/project: kamaji
+    tenant.clastix.io: {{ .Values.global.clusterName }}
+  annotations:
+    "lbipam.cilium.io/ips": "{{ .Values.global.advertiseAddress }}"
+  name: {{ .Values.global.clusterName }}
+  namespace: {{ .Values.global.namespace }}
+spec:
+  ports:
+  - name: kube-apiserver
+    nodePort: 31778
+    port: 6443
+    protocol: TCP
+    targetPort: 6443
+  - name: konnectivity-server
+    nodePort: 30884
+    port: 16443
+    protocol: TCP
+    targetPort: 16443
+  selector:
+    kamaji.clastix.io/name: {{ .Values.global.clusterName }}
+  type: LoadBalancer
+---
+# Source: kubernetes/templates/apiserver-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.global.clusterName }}-apiserver
+  labels:
+    app: {{ .Values.global.clusterName }}-apiserver
+  annotations:
+  namespace: {{ .Values.global.namespace }}
+spec:
+  type: ClusterIP
+  ports:
+  - port: 6443
+    name: client
+  selector:
+    app: kubernetes-apiserver
+---
+# Source: kubernetes/templates/controller-manager-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.global.clusterName }}-controller-manager
+  labels:
+    app: {{ .Values.global.clusterName }}-controller-manager
+  namespace: {{ .Values.global.namespace }}
+spec:
+  type: ClusterIP
+  ports:
+  - port: 10257
+    name: client
+  selector:
+    app: kubernetes-controller-manager
+---
+# Source: kubernetes/templates/scheduler-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.global.clusterName }}-scheduler
+  labels:
+    app: {{ .Values.global.clusterName }}-scheduler
+  namespace: {{ .Values.global.namespace }}
+spec:
+  type: ClusterIP
+  ports:
+  - port: 10259
+    name: client
+  selector:
+    app: kubernetes-scheduler
+{{- end }}

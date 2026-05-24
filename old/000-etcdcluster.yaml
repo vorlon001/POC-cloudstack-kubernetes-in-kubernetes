@@ -1,0 +1,208 @@
+---
+apiVersion: etcd.aenix.io/v1alpha1
+kind: EtcdCluster
+metadata:
+  name: paas-one-etcd
+  namespace: cluster
+spec:
+  podTemplate:
+    spec:
+      containers:
+      - name: etcd
+#        image: "quay.io/coreos/etcd:v3.5.12"
+        image: harbor.iblog.pro/registry.k8s.io/etcd:3.6.8-0
+  storage:
+    volumeClaimTemplate:
+      spec:
+        storageClassName: managed-nfs-storage
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 4Gi
+  security:
+    tls:
+      peerTrustedCASecret: paas-one-etcd-peer-ca-tls
+      peerSecret: paas-one-etcd-peer-tls
+      serverSecret: paas-one-etcd-server-tls
+      clientTrustedCASecret: paas-one-etcd-ca-tls
+      clientSecret: paas-one-etcd-client-tls
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: paas-one-etcd-selfsigning-issuer
+  namespace: cluster
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: paas-one-etcd-peer-ca
+  namespace: cluster
+spec:
+  isCA: true
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "cert sign"
+  commonName: etcd-peer-ca
+  subject:
+    organizations:
+      - ACME Inc.
+    organizationalUnits:
+      - Widgets
+  secretName: paas-one-etcd-peer-ca-tls
+  privateKey:
+# If provided, allowed values are either `RSA`, `ECDSA` or `Ed25519`.
+# If `algorithm` is specified and `size` is not provided,
+# key size of 2048 will be used for `RSA` key algorithm and
+# key size of 256 will be used for `ECDSA` key algorithm.
+# key size is ignored when using the `Ed25519` key algorithm.
+    algorithm: ECDSA
+# If `algorithm` is set to `RSA`, valid values are `2048`, `4096` or `8192`,
+# and will default to `2048` if not specified.
+# If `algorithm` is set to `ECDSA`, valid values are `256`, `384` or `521`,
+# and will default to `256` if not specified.
+# If `algorithm` is set to `Ed25519`, Size is ignored.
+# No other values are allowed.
+#    size: 4096
+  issuerRef:
+    name: paas-one-etcd-selfsigning-issuer
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: paas-one-etcd-ca
+  namespace: cluster
+spec:
+  isCA: true
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "cert sign"
+  commonName: etcd-ca
+  subject:
+    organizations:
+      - ACME Inc.
+    organizationalUnits:
+      - Widgets
+  secretName: paas-one-etcd-ca-tls
+  privateKey:
+    algorithm: ECDSA
+#    size: 4096
+  issuerRef:
+    name: paas-one-etcd-selfsigning-issuer
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: paas-one-etcd-peer-issuer
+  namespace: cluster
+spec:
+  ca:
+    secretName: paas-one-etcd-peer-ca-tls
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: paas-one-etcd-issuer
+  namespace: cluster
+spec:
+  ca:
+    secretName: paas-one-etcd-ca-tls
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: paas-one-etcd-server
+  namespace: cluster
+spec:
+  secretName: paas-one-etcd-server-tls
+  isCA: false
+  usages:
+    - "client auth"
+    - "server auth"
+    - "signing"
+    - "key encipherment"
+  dnsNames:
+  - paas-one-etcd-0
+  - paas-one-etcd-0.paas-one-etcd-headless
+  - paas-one-etcd-0.paas-one-etcd-headless.cluster.svc
+  - paas-one-etcd-0.paas-one-etcd-headless.cluster.svc.cluster.local
+  - paas-one-etcd-1
+  - paas-one-etcd-1.paas-one-etcd-headless
+  - paas-one-etcd-1.paas-one-etcd-headless.cluster.svc
+  - paas-one-etcd-1.paas-one-etcd-headless.cluster.svc.cluster.local
+  - paas-one-etcd-2
+  - paas-one-etcd-2.paas-one-etcd-headless
+  - paas-one-etcd-2.paas-one-etcd-headless.cluster.svc
+  - paas-one-etcd-2.paas-one-etcd-headless.cluster.svc.cluster.local
+  - localhost
+  ipAddresses:
+  - 127.0.0.1
+  privateKey:
+    rotationPolicy: Always
+    algorithm: ECDSA
+#    size: 4096
+  issuerRef:
+    name: paas-one-etcd-issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: paas-one-etcd-peer
+  namespace: cluster
+spec:
+  secretName: paas-one-etcd-peer-tls
+  isCA: false
+  usages:
+    - "server auth"
+    - "client auth"
+    - "signing"
+    - "key encipherment"
+  dnsNames:
+  - paas-one-etcd-0
+  - paas-one-etcd-0.paas-one-etcd-headless
+  - paas-one-etcd-0.paas-one-etcd-headless.cluster.svc
+  - paas-one-etcd-0.paas-one-etcd-headless.cluster.svc.cluster.local
+  - paas-one-etcd-1
+  - paas-one-etcd-1.paas-one-etcd-headless
+  - paas-one-etcd-1.paas-one-etcd-headless.cluster.svc
+  - paas-one-etcd-1.paas-one-etcd-headless.cluster.svc.cluster.local
+  - paas-one-etcd-2
+  - paas-one-etcd-2.paas-one-etcd-headless
+  - paas-one-etcd-2.paas-one-etcd-headless.cluster.svc
+  - paas-one-etcd-2.paas-one-etcd-headless.cluster.svc.cluster.local
+  - localhost
+  - "127.0.0.1"
+  privateKey:
+    rotationPolicy: Always
+    algorithm: ECDSA
+#    size: 4096
+  issuerRef:
+    name: paas-one-etcd-peer-issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: paas-one-etcd-client
+  namespace: cluster
+spec:
+  commonName: root
+  secretName: paas-one-etcd-client-tls
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "client auth"
+  privateKey:
+    rotationPolicy: Always
+    algorithm: ECDSA
+#    size: 4096
+  issuerRef:
+    name: paas-one-etcd-issuer
+    kind: Issuer

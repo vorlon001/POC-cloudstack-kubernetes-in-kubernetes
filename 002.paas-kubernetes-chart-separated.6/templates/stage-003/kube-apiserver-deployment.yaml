@@ -1,0 +1,321 @@
+{{- if .Values.stage003 }}
+{{- if .Values.kubeApiserver.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "paas-kubernetes-separated.fullname" . }}-apiserver
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "paas-kubernetes-separated.labels" . | nindent 4 }}
+    component: kube-apiserver
+spec:
+  replicas: {{ .Values.kubeApiserver.replicaCount }}
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "paas-kubernetes-separated.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      component: kube-apiserver
+  strategy:
+    type: {{ .Values.strategy.type }}
+    rollingUpdate:
+      maxSurge: {{ .Values.strategy.rollingUpdate.maxSurge }}
+      maxUnavailable: {{ .Values.strategy.rollingUpdate.maxUnavailable }}
+  template:
+    metadata:
+      annotations:
+        storage.kamaji.clastix.io/config: {{ randAlphaNum 32 | lower }}
+      labels:
+        app.kubernetes.io/name: {{ include "paas-kubernetes-separated.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        component: kube-apiserver
+        kamaji.clastix.io/component: {{ .Values.labels.kamaji.component }}
+        kamaji.clastix.io/name: {{ .Values.global.clusterName }}
+        kamaji.clastix.io/project: {{ .Values.labels.kamaji.project }}
+        tenant.clastix.io: {{ .Values.labels.tenant }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      terminationGracePeriodSeconds: {{ .Values.pod.terminationGracePeriodSeconds }}
+      dnsPolicy: {{ .Values.pod.dnsPolicy }}
+      restartPolicy: {{ .Values.pod.restartPolicy }}
+      schedulerName: {{ .Values.pod.schedulerName }}
+      containers:
+        - name: kube-apiserver
+          image: "{{ .Values.images.kubeApiserver.repository }}:{{ .Values.images.kubeApiserver.tag }}"
+          imagePullPolicy: {{ .Values.images.kubeApiserver.pullPolicy }}
+          command:
+            - kube-apiserver
+          args:
+            - --advertise-address={{ .Values.global.advertiseAddress }}
+            - --allow-privileged={{ .Values.kubeApiserver.allowPrivileged }}
+            - --client-ca-file=/etc/kubernetes/pki/ca.crt
+            - --egress-selector-config-file=/etc/kubernetes/konnectivity/configurations/egress-selector-configuration.yaml
+            - --enable-admission-plugins={{ .Values.kubeApiserver.enableAdmissionPlugins }}
+            - --enable-bootstrap-token-auth={{ .Values.kubeApiserver.enableBootstrapTokenAuth }}
+            - --etcd-cafile=/etc/kubernetes/pki/etcd/ca.crt
+            - --etcd-certfile=/etc/kubernetes/pki/etcd/server.crt
+            - --etcd-compaction-interval={{ .Values.kubeApiserver.etcdCompactionInterval }}
+            - --etcd-keyfile=/etc/kubernetes/pki/etcd/server.key
+            - --etcd-prefix={{ .Values.global.clusterName }}
+            - --etcd-servers={{ tpl .Values.kubeApiserver.etcdServers . }}
+            - --kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt
+            - --kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key
+            - --kubelet-preferred-address-types=InternalDNS,InternalIP,Hostname,ExternalDNS,ExternalIP
+            - --proxy-client-cert-file=/etc/kubernetes/pki/front-proxy-client.crt
+            - --proxy-client-key-file=/etc/kubernetes/pki/front-proxy-client.key
+            - --requestheader-allowed-names=front-proxy-client
+            - --requestheader-client-ca-file=/etc/kubernetes/pki/front-proxy-ca.crt
+            - --requestheader-extra-headers-prefix=X-Remote-Extra-
+            - --requestheader-group-headers=X-Remote-Group
+            - --requestheader-username-headers=X-Remote-User
+            - --secure-port={{ .Values.kubeApiserver.securePort }}
+            - --service-account-issuer={{ .Values.kubeApiserver.serviceAccountIssuer }}
+            - --service-account-key-file=/etc/kubernetes/pki/sa.pub
+            - --service-account-signing-key-file=/etc/kubernetes/pki/sa.key
+            - --service-cluster-ip-range={{ .Values.global.serviceClusterIPRange }}
+            - --tls-cert-file=/etc/kubernetes/pki/apiserver.crt
+            - --tls-private-key-file=/etc/kubernetes/pki/apiserver.key
+            - --audit-log-format={{ .Values.kubeApiserver.audit.logFormat }}
+            - --audit-log-maxage={{ .Values.kubeApiserver.audit.logMaxAge }}
+            - --audit-log-maxbackup={{ .Values.kubeApiserver.audit.logMaxBackup }}
+            - --audit-log-maxsize={{ .Values.kubeApiserver.audit.logMaxSize }}
+            - --audit-log-path={{ .Values.kubeApiserver.audit.logPath }}
+            - --authorization-webhook-cache-authorized-ttl=5m0s
+            - --authorization-webhook-cache-unauthorized-ttl=30s
+            - --audit-policy-file=/etc/kubernetes/audit/audit-policy.yaml
+            - --profiling={{ .Values.kubeApiserver.profiling }}
+            - --request-timeout={{ .Values.kubeApiserver.requestTimeout }}
+            - --tls-min-version={{ .Values.kubeApiserver.tlsMinVersion }}
+            - --service-node-port-range={{ .Values.global.serviceNodePortRange }}
+            - --authorization-mode={{ .Values.kubeApiserver.authorizationMode }}
+            - --default-not-ready-toleration-seconds={{ .Values.kubeApiserver.defaultNotReadyTolerationSeconds }}
+            - --default-unreachable-toleration-seconds={{ .Values.kubeApiserver.defaultUnreachableTolerationSeconds }}
+            - --enable-aggregator-routing={{ .Values.kubeApiserver.enableAggregatorRouting }}
+            - --anonymous-auth={{ .Values.kubeApiserver.anonymousAuth }}
+            - --event-ttl={{ .Values.kubeApiserver.eventTTL }}
+            - --bind-address={{ .Values.kubeApiserver.bindAddress }}
+            - --tls-cipher-suites={{ .Values.kubeApiserver.tlsCipherSuites }}
+          {{- with .Values.kubeApiserver.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+          - containerPort: 6443
+            name: probe-port
+            protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.kubeApiserver.probes.liveness.path }}
+              port: {{ .Values.kubeApiserver.probes.liveness.port }}
+              scheme: {{ .Values.kubeApiserver.probes.liveness.scheme }}
+            failureThreshold: {{ .Values.kubeApiserver.probes.liveness.failureThreshold }}
+            periodSeconds: {{ .Values.kubeApiserver.probes.liveness.periodSeconds }}
+            successThreshold: {{ .Values.kubeApiserver.probes.liveness.successThreshold }}
+            timeoutSeconds: {{ .Values.kubeApiserver.probes.liveness.timeoutSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.kubeApiserver.probes.readiness.path }}
+              port: {{ .Values.kubeApiserver.probes.readiness.port }}
+              scheme: {{ .Values.kubeApiserver.probes.readiness.scheme }}
+            failureThreshold: {{ .Values.kubeApiserver.probes.readiness.failureThreshold }}
+            periodSeconds: {{ .Values.kubeApiserver.probes.readiness.periodSeconds }}
+            successThreshold: {{ .Values.kubeApiserver.probes.readiness.successThreshold }}
+            timeoutSeconds: {{ .Values.kubeApiserver.probes.readiness.timeoutSeconds }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.kubeApiserver.probes.startup.path }}
+              port: {{ .Values.kubeApiserver.probes.startup.port }}
+              scheme: {{ .Values.kubeApiserver.probes.startup.scheme }}
+            failureThreshold: {{ .Values.kubeApiserver.probes.startup.failureThreshold }}
+            periodSeconds: {{ .Values.kubeApiserver.probes.startup.periodSeconds }}
+            successThreshold: {{ .Values.kubeApiserver.probes.startup.successThreshold }}
+            timeoutSeconds: {{ .Values.kubeApiserver.probes.startup.timeoutSeconds }}
+          volumeMounts:
+            - name: audit-policy
+              mountPath: /etc/kubernetes/audit
+              readOnly: true
+            - name: etc-kubernetes-pki
+              mountPath: /etc/kubernetes/pki
+              readOnly: true
+            - name: etc-ca-certificates
+              mountPath: /etc/ca-certificates
+              readOnly: true
+            - name: usr-share-ca-certificates
+              mountPath: /usr/share/ca-certificates
+              readOnly: true
+            - name: usr-local-share-ca-certificates
+              mountPath: /usr/local/share/ca-certificates
+              readOnly: true
+            - name: konnectivity-uds
+              mountPath: /run/konnectivity
+            - name: egress-selector-configuration
+              mountPath: /etc/kubernetes/konnectivity/configurations
+{{- if .Values.konnectivityServer.enabled }}
+        - name: konnectivity-server
+          image: "{{ .Values.images.konnectivityServer.repository }}:{{ .Values.images.konnectivityServer.tag }}"
+          imagePullPolicy: {{ .Values.images.konnectivityServer.pullPolicy }}
+          command:
+            - /proxy-server
+          args:
+            - --admin-port={{ .Values.konnectivityServer.adminPort }}
+            - --agent-namespace={{ .Values.konnectivityServer.agentNamespace }}
+            - --agent-port={{ .Values.konnectivityServer.agentPort }}
+            - --agent-service-account={{ .Values.konnectivityServer.agentServiceAccount }}
+            - --authentication-audience={{ .Values.konnectivityServer.authenticationAudience }}
+            - --cluster-cert=/etc/kubernetes/pki/apiserver.crt
+            - --cluster-key=/etc/kubernetes/pki/apiserver.key
+            - --health-port={{ .Values.konnectivityServer.healthPort }}
+            - --kubeconfig=/etc/kubernetes/konnectivity-server.conf
+            - --mode={{ .Values.konnectivityServer.mode }}
+            - --server-count={{ .Values.konnectivityServer.serverCount }}
+            - --server-port={{ .Values.konnectivityServer.serverPort }}
+            - --uds-name={{ .Values.konnectivityServer.udsName }}
+          {{- with .Values.konnectivityServer.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.konnectivityServer.probes.liveness.path }}
+              port: {{ .Values.konnectivityServer.probes.liveness.port }}
+              scheme: {{ .Values.konnectivityServer.probes.liveness.scheme }}
+            failureThreshold: {{ .Values.konnectivityServer.probes.liveness.failureThreshold }}
+            initialDelaySeconds: {{ .Values.konnectivityServer.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.konnectivityServer.probes.liveness.periodSeconds }}
+            successThreshold: {{ .Values.konnectivityServer.probes.liveness.successThreshold }}
+            timeoutSeconds: {{ .Values.konnectivityServer.probes.liveness.timeoutSeconds }}
+          ports:
+            - name: agentport
+              containerPort: {{ .Values.konnectivityServer.agentPort }}
+              protocol: TCP
+            - name: adminport
+              containerPort: {{ .Values.konnectivityServer.adminPort }}
+              protocol: TCP
+            - name: healthport
+              containerPort: {{ .Values.konnectivityServer.healthPort }}
+              protocol: TCP
+          volumeMounts:
+            - name: etc-kubernetes-pki-konnectivity
+              mountPath: /etc/kubernetes/pki
+              readOnly: true
+            - name: konnectivity-server-kubeconfig
+              mountPath: /etc/kubernetes/konnectivity-server.conf
+              subPath: konnectivity-server.conf
+              readOnly: true
+            - name: konnectivity-uds
+              mountPath: /run/konnectivity
+{{- end }}
+
+      volumes:
+{{- if .Values.konnectivityServer.enabled }}
+        - name: etc-kubernetes-pki-konnectivity
+          projected:
+            defaultMode: 420
+            sources:
+              - secret:
+                  name: {{ .Values.global.clusterName }}-pki-ca
+                  items:
+                    - key: tls.crt
+                      path: ca.crt
+                    - key: tls.key
+                      path: ca.key
+              - secret:
+                  name: {{ .Values.global.clusterName }}-pki-apiserver-server
+                  items:
+                    - key: tls.crt
+                      path: apiserver.crt
+                    - key: tls.key
+                      path: apiserver.key
+              - secret:
+                  name: {{ .Values.global.clusterName }}-pki-konnectivity-server-client
+                  items:
+                    - key: tls.crt
+                      path: konnectivity.crt
+                    - key: tls.key
+                      path: konnectivity.key
+{{- end }}
+        - name: konnectivity-server-kubeconfig
+          configMap:
+            name: {{ .Values.global.clusterName }}-konnectivity-kubeconfig
+            defaultMode: 420
+        - name: audit-policy
+          configMap:
+            name: {{ .Values.configMaps.auditPolicy }}
+            defaultMode: 420
+        - name: etc-kubernetes-pki
+          projected:
+            defaultMode: 420
+            sources:
+              - secret:
+                  name: {{ .Values.global.clusterName }}-pki-apiserver-server
+                  items:
+                    - key: tls.crt
+                      path: apiserver.crt
+                    - key: tls.key
+                      path: apiserver.key
+              - secret:
+                  name: {{ .Values.global.clusterName }}-pki-ca
+                  items:
+                    - key: tls.crt
+                      path: ca.crt
+                    - key: tls.key
+                      path: ca.key
+              - secret:
+                  name: {{ .Values.global.clusterName }}-pki-apiserver-kubelet-client
+                  items:
+                    - key: tls.crt
+                      path: apiserver-kubelet-client.crt
+                    - key: tls.key
+                      path: apiserver-kubelet-client.key
+              - secret:
+                  name: {{ .Values.global.clusterName }}-pki-front-proxy-ca
+                  items:
+                    - key: tls.crt
+                      path: front-proxy-ca.crt
+                    - key: tls.key
+                      path: front-proxy-ca.key
+              - secret:
+                  name: {{ .Values.global.clusterName }}-pki-front-proxy-client
+                  items:
+                    - key: tls.crt
+                      path: front-proxy-client.crt
+                    - key: tls.key
+                      path: front-proxy-client.key
+              - secret:
+                  name: {{ .Values.global.clusterName }}-pki-sa
+                  items:
+                    - key: tls.crt
+                      path: sa.pub
+                    - key: tls.key
+                      path: sa.key
+              - secret:
+                  name: {{ .Values.global.clusterName }}-etcd-server-tls
+                  items:
+                    - key: ca.crt
+                      path: etcd/ca.crt
+                    - key: tls.crt
+                      path: etcd/server.crt
+                    - key: tls.key
+                      path: etcd/server.key
+        - name: etc-ca-certificates
+          secret:
+            secretName: {{ .Values.global.clusterName }}-pki-ca
+            defaultMode: 420
+        - name: usr-share-ca-certificates
+          secret:
+            secretName: {{ .Values.global.clusterName }}-pki-ca
+            defaultMode: 420
+        - name: usr-local-share-ca-certificates
+          secret:
+            secretName: {{ .Values.global.clusterName }}-pki-ca
+            defaultMode: 420
+        - name: konnectivity-uds
+          emptyDir:
+            medium: Memory
+        - name: egress-selector-configuration
+          configMap:
+            name: {{ .Values.global.clusterName }}-konnectivity-egress-selector-configuration
+            defaultMode: 420
+{{- end }}
+{{- end }}
